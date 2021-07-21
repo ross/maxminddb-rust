@@ -1,6 +1,7 @@
 use ipnetwork::IpNetwork;
 
-use maxminddb::geoip2;
+use fallible_iterator::FallibleIterator;
+use maxminddb::{Within, geoip2};
 
 fn main() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
@@ -19,10 +20,9 @@ fn main() -> Result<(), String> {
     } else {
         IpNetwork::V4(cidr.parse().unwrap())
     };
-    for r in reader.within(ip_net).map_err(|e| e.to_string())? {
-        let i = r.map_err(|e| e.to_string())?;
-        let (ip_net, info): (IpNetwork, geoip2::City) = (i.ip_net, i.info);
-        println!("ip_net={}, info={:#?}", ip_net, info);
+    let mut iter: Within<geoip2::City, _> = reader.within(ip_net).map_err(|e| e.to_string())?;
+    while let Some(i) = iter.next().map_err(|e| e.to_string())? {
+        println!("ip_net={}, info={:#?}", i.ip_net, i.info);
     }
     Ok(())
 }
